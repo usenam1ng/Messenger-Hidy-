@@ -3,6 +3,11 @@ import datetime
 import customtkinter as CTk
 from PIL import Image
 import pickle
+import atexit
+import json
+
+global login_check
+login_check = False
 
 
 class ToplevelWindow(CTk.CTkToplevel):
@@ -18,6 +23,8 @@ class ToplevelWindow(CTk.CTkToplevel):
         self.label.pack(padx=20, pady=20)
 
         def login():
+            global login_check
+            login_check = True
             login = self.user.get()
             password = self.password.get()
 
@@ -26,6 +33,8 @@ class ToplevelWindow(CTk.CTkToplevel):
             print(query)
 
             self.destroy()
+
+
 
 
 
@@ -52,7 +61,6 @@ class App(CTk.CTk):
 
         ToplevelWindow()
 
-
         def sendSendToServer():
             pass
 
@@ -67,12 +75,30 @@ class App(CTk.CTk):
             text_label = CTk.CTkLabel(master=self.chat_frame, text=message_text, justify=CTk.LEFT)
             text_label.pack(anchor=CTk.W)
             message = self.textbox.delete(first_index=0, last_index=10000)
+            save_data()
+
+        def text_add(message):
+            global name_text_dict
+
+            sendSendToServer()
+
+            text_label = CTk.CTkLabel(master=self.chat_frame, text=message, justify=CTk.LEFT)
+            text_label.pack(anchor=CTk.W)
+            message = self.textbox.delete(first_index=0, last_index=10000)
 
         def new_user_add():
             global name_text_dict
             global realtime_user
             new_usr_window = CTk.CTkInputDialog(text="Type a usename", title="Test")
             username = new_usr_window.get_input()
+            name_text_dict[username] = None
+            button = CTk.CTkButton(master=self.chater_frame, width=190, height=30, text=username, fg_color="#5e00ff", text_color="white", command=lambda: switch_dialog(username))
+            button.pack()
+            switch_dialog(username)
+
+        def old_user_add(username):
+            global name_text_dict
+            global realtime_user
             name_text_dict[username] = None
             button = CTk.CTkButton(master=self.chater_frame, width=190, height=30, text=username, fg_color="#5e00ff", text_color="white", command=lambda: switch_dialog(username))
             button.pack()
@@ -131,10 +157,34 @@ class App(CTk.CTk):
                 
         #     print("---------------------")
             
-        def seralize():
+        def save_data():
             global name_text_dict
-            
+            for_save_dict = {}
+            for i in name_text_dict.keys():
+                 for child in name_text_dict[i].winfo_children():
+                    if i in for_save_dict:
+                        st = for_save_dict.get(i)
+                        if "\n" in child.cget("text"):
+                            st += child.cget("text")
+                        else:
+                            st += child.cget("text") + "\n"
+                        print(st)
+                        for_save_dict[i] = st
+                    else:
+                        for_save_dict[i] = child.cget("text")
+            with open('data.json', 'w', encoding='utf-8') as file:
+                json.dump(for_save_dict, file, ensure_ascii=False, indent=4)
 
+
+        def load_data():
+            with open('data.json', 'r') as file:
+                loaded_dict = json.load(file)
+            for i in loaded_dict.keys():
+                old_user_add(i)
+                st = loaded_dict.get(i)
+                st_arr = st.split("\n")
+                for j in st_arr:
+                    text_add(j)
 
         self.geometry("1000x600")
         self.title("messenger")
@@ -149,7 +199,7 @@ class App(CTk.CTk):
         self.sendbutton = CTk.CTkButton(master=self, width=30, height=30, fg_color="#5e00ff", text_color="white", text="send", command=sendtext)
         self.sendbutton.place(x=950, y=520)
 
-        self.setbutton = CTk.CTkButton(master=self, width=40, height=30, fg_color="#5e00ff", text_color="white", text="settings", command=seralize)
+        self.setbutton = CTk.CTkButton(master=self, width=40, height=30, fg_color="#5e00ff", text_color="white", text="settings")
         self.setbutton.place(x=10, y=10)
 
         self.newchat = CTk.CTkButton(master=self, width=30, height=30, fg_color="#5e00ff", text_color="white", text="+", command=new_user_add)
@@ -158,6 +208,11 @@ class App(CTk.CTk):
         self.chater_frame = CTk.CTkScrollableFrame(master=self, width=200, height=490, fg_color="white")
         self.chater_frame.place(x=10, y=50)
 
+        global login_check
+        if login_check == True:
+            load_data()
+
+        atexit.register(save_data)
 
 
 
