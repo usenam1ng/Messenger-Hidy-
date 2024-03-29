@@ -2,66 +2,100 @@ import rsa
 import datetime
 import customtkinter as CTk
 from PIL import Image
-import pickle
-import atexit
 import json
+import socket
+import os
 
 global login_check
 login_check = False
 
 
-class ToplevelWindow(CTk.CTkToplevel):
-    def __init__(self):
-        super().__init__()
-        self.geometry("400x300")
-        self.title("Login")
-
-        my_image = CTk.CTkImage(light_image=Image.open("/Users/vladislavkonukov/Desktop/RGZ/client/7516814.png"),
-                                  dark_image=Image.open("/Users/vladislavkonukov/Desktop/RGZ/client/7516814.png"),
-                                  size=(100, 100))
-        self.label = CTk.CTkLabel(self, image=my_image, text="", )
-        self.label.pack(padx=20, pady=20)
-
-        def login():
-            global login_check
-            login_check = True
-            login = self.user.get()
-            password = self.password.get()
-
-            query = login + "+" + password
-
-            print(query)
-
-            self.destroy()
-
-
-
-
-
-        self.user = CTk.CTkEntry(master=self, width=200, height=30)
-        self.user.place(x=100, y=150)
-
-        self.password = CTk.CTkEntry(master=self, width=200, height=30)
-        self.password.place(x=100, y=200)
-        
-        self.login = CTk.CTkButton(master=self, width=50, height=30, fg_color="#5e00ff", text_color="white", text="register/login", command=login)
-        self.login.place(x=150, y=250)
-
-
-
 class App(CTk.CTk):
     def __init__(self):
+        print("Interface loaded!")
         super().__init__()
-
         global realtime_user
         realtime_user = ""
 
         global name_text_dict
         name_text_dict = {}
 
-        ToplevelWindow()
+        def send_tcp_message(message, host="127.0.0.1", port=6575):
+            # Создаем сокет
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                # Устанавливаем соединение с сервером
+                s.connect((host, port))
+                print("Connection done!")
+                # Отправляем сообщение
+                s.sendall(message.encode())
+                print(f"Сообщение '{message}' отправлено успешно на {host}:{port}")
 
-        def sendSendToServer():
+                response = s.recv(1024).decode()
+                print(f"Получен ответ от сервера: {response}")
+                
+                return response
+            
+        def key_gen(parameter):
+            if parameter == 0:
+                pass
+            elif parameter == 1:
+                pass
+            print("RSA process!")
+            (e, n), (d, n) = rsa.generate_keypair()
+            print("RSA done!")
+            if os.path.exists('keys.json'):
+                with open('keys.json', 'r') as file:
+                    (e, n), (d, n) = json.load(file)
+                return (e, n), (d, n)
+            else:
+                with open('keys.json', 'w', encoding='utf-8') as file:
+                    json.dump(((e, n), (d, n)), file, ensure_ascii=False, indent=4)
+                return (e, n), (d, n)
+
+            
+
+        def ToplevelWindow():
+            new_window = CTk.CTkToplevel(self)
+            new_window.geometry("400x300")
+            new_window.title("Login")
+
+            my_image = CTk.CTkImage(light_image=Image.open("7516814.png"),
+                                    dark_image=Image.open("7516814.png"),
+                                    size=(100, 100))
+            new_window.label = CTk.CTkLabel(new_window, image=my_image, text="", )
+            new_window.label.pack(padx=20, pady=20)
+
+            def login():
+                global login_check
+                if login_check:
+                    load_data()
+                logn = new_window.user.get()
+                password = new_window.password.get()
+
+                (e, n), (d, n) = key_gen(0)
+                openkey = str(e) + ":" + str(n)
+                
+                print("key`s generated!")
+
+                resp = send_tcp_message(logn + "~" + password + "~" + openkey)
+
+                if resp == "User created successfully" or resp == "Login successful":
+                    new_window.destroy()
+                    return
+                elif resp == "Bad password":
+                    new_window.destroy()
+                    ToplevelWindow()
+
+            new_window.user = CTk.CTkEntry(master=new_window, width=200, height=30)
+            new_window.user.place(x=100, y=150)
+
+            new_window.password = CTk.CTkEntry(master=new_window, width=200, height=30)
+            new_window.password.place(x=100, y=200)
+            
+            new_window.login = CTk.CTkButton(master=new_window, width=50, height=30, fg_color="#5e00ff", text_color="white", text="register/login", command=login)
+            new_window.login.place(x=150, y=250)
+
+        def send_To_Server():
             pass
 
         def sendtext():
@@ -70,7 +104,7 @@ class App(CTk.CTk):
             current_time = datetime.datetime.now()
             message_text = f"{current_time} - {message}\n"
 
-            sendSendToServer()
+            send_To_Server()
 
             text_label = CTk.CTkLabel(master=self.chat_frame, text=message_text, justify=CTk.LEFT)
             text_label.pack(anchor=CTk.W)
@@ -79,9 +113,6 @@ class App(CTk.CTk):
 
         def text_add(message):
             global name_text_dict
-
-            sendSendToServer()
-
             text_label = CTk.CTkLabel(master=self.chat_frame, text=message, justify=CTk.LEFT)
             text_label.pack(anchor=CTk.W)
             message = self.textbox.delete(first_index=0, last_index=10000)
@@ -91,10 +122,16 @@ class App(CTk.CTk):
             global realtime_user
             new_usr_window = CTk.CTkInputDialog(text="Type a usename", title="Test")
             username = new_usr_window.get_input()
-            name_text_dict[username] = None
-            button = CTk.CTkButton(master=self.chater_frame, width=190, height=30, text=username, fg_color="#5e00ff", text_color="white", command=lambda: switch_dialog(username))
-            button.pack()
-            switch_dialog(username)
+            ifls = send_tcp_message(username + "`" + " ")
+            if ifls != "bad_user":
+                name_text_dict[username] = None
+                button = CTk.CTkButton(master=self.chater_frame, width=190, height=30, text=username, fg_color="#5e00ff", text_color="white", command=lambda: switch_dialog(username))
+                button.pack()
+                switch_dialog(username)
+            else:
+                new_usr_window.destroy()
+                return
+
 
         def old_user_add(username):
             global name_text_dict
@@ -142,20 +179,6 @@ class App(CTk.CTk):
             realtime_user = username
 
             print(f"user switched to: {username}")
-        
-
-        # def debug_output():
-        #     global name_text_dict
-        #     print("_____________________")
-        #     print(f"realtime user: {realtime_user}")
-        #     print(f"whole dictionary: {name_text_dict}")
-        #     for i in name_text_dict.keys():
-        #         print(f"<{i}>: {name_text_dict[i]}")
-        #         for child in name_text_dict[i].winfo_children():
-        #             print(f"child ~< {child} >~")
-        #             print(f"child ~~~< {child.cget("text")} >~~~")
-                
-        #     print("---------------------")
             
         def save_data():
             global name_text_dict
@@ -208,11 +231,7 @@ class App(CTk.CTk):
         self.chater_frame = CTk.CTkScrollableFrame(master=self, width=200, height=490, fg_color="white")
         self.chater_frame.place(x=10, y=50)
 
-        global login_check
-        if login_check == True:
-            load_data()
-
-        atexit.register(save_data)
+        ToplevelWindow()
 
 
 
