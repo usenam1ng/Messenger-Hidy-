@@ -13,7 +13,8 @@ def decryption(public_key, plaintext):
     return cipher
 
 def is_prime(num):
-    test_count = 5
+    print("Ispiiming...")
+    test_count = 3
     if num == 2 or num == 3:
         return True
     if num < 2 or num % 2 == 0:
@@ -49,11 +50,12 @@ def egcd(a, b):
         return (g, x - (b // a) * y, y)
 
 def generate_keypair():
+    print("RSA loaded!")
     p = 0
     q = 0
     while True:
-        p = random.getrandbits(1024)
-        q = random.getrandbits(1024)
+        p = random.getrandbits(128)
+        q = random.getrandbits(128)
         if is_prime(p) and is_prime(q):
             break
 
