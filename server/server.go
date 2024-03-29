@@ -10,7 +10,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func handleRequest(conn net.Conn, db *sql.DB) {
+func handleRequest(conn net.Conn, db *sql.DB, addr net.Addr) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
@@ -20,11 +20,14 @@ func handleRequest(conn net.Conn, db *sql.DB) {
 	}
 
 	request := strings.TrimSpace(string(buffer[:n]))
+	usrip := conn.RemoteAddr().String()
 
 	if strings.Contains(request, "`") {
 		// Запрос 2
+		parts := strings.Split(request, "`")
+		login := parts[0]
 		var openkey string
-		err := db.QueryRow("SELECT openkey FROM usr_info WHERE usr = $1", request).Scan(&openkey)
+		err := db.QueryRow("SELECT openkey FROM usr_info WHERE usr = $1", login).Scan(&openkey)
 		if err == sql.ErrNoRows {
 			conn.Write([]byte("bad_user"))
 			return
@@ -50,6 +53,8 @@ func handleRequest(conn net.Conn, db *sql.DB) {
 		parts := strings.Split(request, "~")
 		login := parts[0]
 		password := parts[1]
+		openkey := parts[2]
+		fmt.Println(openkey)
 
 		fmt.Println("Тип запроса - логин/регистрация")
 		fmt.Println("login - ", login)
@@ -58,20 +63,32 @@ func handleRequest(conn net.Conn, db *sql.DB) {
 
 		// Запрос 1
 		var storedPassword string
-		err := db.QueryRow("SELECT paswd FROM autor WHERE usr = ", login).Scan(&storedPassword)
-		fmt.Println("storedPassword - ", storedPassword)
-		if err == sql.ErrNoRows {
+		fmt.Println("SELECT paswd FROM autor WHERE usr = '" + login + "'")
+		err := db.QueryRow("SELECT paswd FROM autor WHERE usr = '" + login + "'").Scan(&storedPassword)
+		fmt.Println("storedPassword - ", storedPassword, " - ", len(storedPassword))
+		if err == sql.ErrNoRows || storedPassword == "" {
 			_, err = db.Exec("INSERT INTO autor (usr, paswd) VALUES ($1, $2)", login, password)
 			if err != nil {
 				log.Println(err)
 				conn.Write([]byte("Error creating user"))
 				return
-			} else {
+			}
+			_, err1 := db.Exec("INSERT INTO usr_info (usr, openkey, ip) VALUES ($1, $2, $3)", login, openkey, usrip)
+			if err1 != nil {
+				log.Println(err)
+				conn.Write([]byte("Error append user data to db"))
+				return
 			}
 			conn.Write([]byte("User created successfully"))
 			return
 		} else if storedPassword == password {
 			conn.Write([]byte("Login successful"))
+			_, err1 := db.Exec("UPDATE your_table SET column2 = $2, column3 = $3 WHERE condition_column = $1", login, openkey, usrip)
+			if err1 != nil {
+				log.Println(err)
+				conn.Write([]byte("Error append user data to db"))
+				return
+			}
 		} else {
 			conn.Write([]byte("Bad password"))
 		}
@@ -79,7 +96,7 @@ func handleRequest(conn net.Conn, db *sql.DB) {
 }
 
 func main() {
-	db, err := sql.Open("postgres", "host=localhost port=5432 user=postgre password=12345 dbname=PostgreSQLRGZ sslmode=disable")
+	db, err := sql.Open("postgres", "host=localhost port=5432 user=postgres password=12345 dbname=postgres sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -100,6 +117,8 @@ func main() {
 			continue
 		}
 		fmt.Println("Сервер запущен...")
-		go handleRequest(conn, db)
+		fmt.Println("______________________")
+		addr := conn.RemoteAddr()
+		go handleRequest(conn, db, addr)
 	}
 }
