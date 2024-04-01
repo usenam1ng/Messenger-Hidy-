@@ -5,6 +5,8 @@ from PIL import Image
 import json
 import socket
 import os
+import hashlib
+import viginere
 
 global login_check
 login_check = False
@@ -19,6 +21,17 @@ class App(CTk.CTk):
 
         global name_text_dict
         name_text_dict = {}
+
+        global logn
+        logn = ""
+
+        global password
+        password = ""
+
+        def sha256(input_string):
+            sha256_hash = hashlib.sha256()
+            sha256_hash.update(input_string.encode('utf-8'))
+            return sha256_hash.hexdigest()
 
         def send_tcp_message(message, host="127.0.0.1", port=6575):
             # Создаем сокет
@@ -67,10 +80,14 @@ class App(CTk.CTk):
 
             def login():
                 global login_check
-                if login_check:
-                    load_data()
+                global realtime_user
+                global logn
+                global password
                 logn = new_window.user.get()
+                logn = logn.lower()
                 password = new_window.password.get()
+                password = password.lower()
+                password = sha256(password)
 
                 (e, n), (d, n) = key_gen(0)
                 openkey = str(e) + ":" + str(n)
@@ -81,6 +98,7 @@ class App(CTk.CTk):
 
                 if resp == "User created successfully" or resp == "Login successful":
                     new_window.destroy()
+                    load_data(logn)
                     return
                 elif resp == "Bad password":
                     new_window.destroy()
@@ -122,15 +140,16 @@ class App(CTk.CTk):
             global realtime_user
             new_usr_window = CTk.CTkInputDialog(text="Type a usename", title="Test")
             username = new_usr_window.get_input()
-            ifls = send_tcp_message(username + "`" + " ")
-            if ifls != "bad_user":
-                name_text_dict[username] = None
-                button = CTk.CTkButton(master=self.chater_frame, width=190, height=30, text=username, fg_color="#5e00ff", text_color="white", command=lambda: switch_dialog(username))
-                button.pack()
-                switch_dialog(username)
-            else:
-                new_usr_window.destroy()
-                return
+            if username not in name_text_dict.keys():
+                ifls = send_tcp_message(username + "`" + " ")
+                if ifls != "bad_user":
+                    name_text_dict[username] = None
+                    button = CTk.CTkButton(master=self.chater_frame, width=190, height=30, text=username, fg_color="#5e00ff", text_color="white", command=lambda: switch_dialog(username))
+                    button.pack()
+                    switch_dialog(username)
+                else:
+                    new_usr_window.destroy()
+                    return
 
 
         def old_user_add(username):
@@ -140,15 +159,6 @@ class App(CTk.CTk):
             button = CTk.CTkButton(master=self.chater_frame, width=190, height=30, text=username, fg_color="#5e00ff", text_color="white", command=lambda: switch_dialog(username))
             button.pack()
             switch_dialog(username)
-            
-        def save_chat_history_to_file():
-            global name_text_dict
-            chat_history = ""
-            for widget in self.chat_frame.winfo_children():
-                chat_history += widget.cget("text") + "\n"
-            filename = "bibki1" + ".txt"
-            with open(filename, "w") as file:
-                file.write(chat_history)
 
         def switch_dialog(username):
             global name_text_dict
@@ -181,33 +191,43 @@ class App(CTk.CTk):
             print(f"user switched to: {username}")
             
         def save_data():
+            global logn
             global name_text_dict
+            global realtime_user
+            global password
             for_save_dict = {}
             for i in name_text_dict.keys():
-                 for child in name_text_dict[i].winfo_children():
+                for child in name_text_dict[i].winfo_children():
                     if i in for_save_dict:
                         st = for_save_dict.get(i)
                         if "\n" in child.cget("text"):
-                            st += child.cget("text")
+                            a = child.cget("text")[:-1].split('-')
+                            a_enc = viginere.vig_encrypt(a[3], password)
+                            st += a[0] + '-' + a[1] + '-' + a[2] + '-' + a_enc + "\n"
                         else:
-                            st += child.cget("text") + "\n"
+                            a = child.cget("text").split('-')
+                            a_enc = viginere.vig_encrypt(a[3], password)
+                            st += a[0] + '-' + a[1] + '-' + a[2] + '-' + a_enc + "\n"
                         print(st)
                         for_save_dict[i] = st
                     else:
                         for_save_dict[i] = child.cget("text")
-            with open('data.json', 'w', encoding='utf-8') as file:
+            with open(str(logn)+'.json', 'w', encoding='utf-8') as file:
                 json.dump(for_save_dict, file, ensure_ascii=False, indent=4)
 
 
-        def load_data():
-            with open('data.json', 'r') as file:
+        def load_data(usr):
+            global password
+            with open(str(usr)+'.json', 'r') as file:
                 loaded_dict = json.load(file)
             for i in loaded_dict.keys():
                 old_user_add(i)
                 st = loaded_dict.get(i)
                 st_arr = st.split("\n")
                 for j in st_arr:
-                    text_add(j)
+                    a = j.split('-')
+                    a_dec = viginere.vig_decrypt(a[3], password)
+                    text_add(a[0] + '-' + a[1] + '-' + a[2] + '-' + a_dec)
 
         self.geometry("1000x600")
         self.title("messenger")
