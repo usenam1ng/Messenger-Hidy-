@@ -7,9 +7,35 @@ import socket
 import os
 import hashlib
 import viginere
+import time
+import threading
 
 global login_check
 login_check = False
+
+class ServerRequestSender:
+    def __init__(self):
+        def send_server_request():
+            host="127.0.0.1"
+            port=6575
+            message = '~ping~'
+            while True:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    try:
+                        s.connect((host, port))
+                        print("Connection done!")
+                        s.sendall(message.encode())
+                        #print(f"Message '{self.message}' sent successfully to {self.host}:{self.port}")
+                        response = s.recv(1024).decode()
+                        #print(f"Response from server: {response}")
+                    except Exception as e:
+                        print(f"Error occurred: {e}")
+
+                time.sleep(5)
+
+        request_thread = threading.Thread(target=send_server_request)
+        request_thread.daemon = True
+        request_thread.start()
 
 
 class App(CTk.CTk):
@@ -28,6 +54,8 @@ class App(CTk.CTk):
         global password
         password = ""
 
+        self.server_request_sender = ServerRequestSender()
+
         def sha256(input_string):
             sha256_hash = hashlib.sha256()
             sha256_hash.update(input_string.encode('utf-8'))
@@ -41,7 +69,7 @@ class App(CTk.CTk):
                 print("Connection done!")
                 # Отправляем сообщение
                 s.sendall(message.encode())
-                print(f"Сообщение '{message}' отправлено успешно на {host}:{port}")
+                #(f"Сообщение '{message}' отправлено успешно на {host}:{port}")
 
                 response = s.recv(1024).decode()
                 print(f"Получен ответ от сервера: {response}")
@@ -64,8 +92,6 @@ class App(CTk.CTk):
                 with open('keys.json', 'w', encoding='utf-8') as file:
                     json.dump(((e, n), (d, n)), file, ensure_ascii=False, indent=4)
                 return (e, n), (d, n)
-
-            
 
         def ToplevelWindow():
             new_window = CTk.CTkToplevel(self)
@@ -208,7 +234,6 @@ class App(CTk.CTk):
                             a = child.cget("text").split('-')
                             a_enc = viginere.vig_encrypt(a[3], password)
                             st += a[0] + '-' + a[1] + '-' + a[2] + '-' + a_enc + "\n"
-                        print(st)
                         for_save_dict[i] = st
                     else:
                         for_save_dict[i] = child.cget("text")
@@ -226,8 +251,9 @@ class App(CTk.CTk):
                 st_arr = st.split("\n")
                 for j in st_arr:
                     a = j.split('-')
-                    a_dec = viginere.vig_decrypt(a[3], password)
-                    text_add(a[0] + '-' + a[1] + '-' + a[2] + '-' + a_dec)
+                    if len(a) >= 2:
+                        a_dec = viginere.vig_decrypt(a[3], password)
+                        text_add(a[0] + '-' + a[1] + '-' + a[2] + '-' + a_dec)
 
         self.geometry("1000x600")
         self.title("messenger")
@@ -256,7 +282,5 @@ class App(CTk.CTk):
 
 
 if __name__ == "__main__":
-    
-
     app = App()
     app.mainloop()
