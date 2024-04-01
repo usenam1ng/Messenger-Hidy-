@@ -13,25 +13,43 @@ import threading
 global login_check
 login_check = False
 
+global ping_ans
+ping_ans = ""
+
+global name_text_dict
+name_text_dict = {}
+
+global logn
+logn = ""
+
+global lets_ping
+lets_ping = ""
+
 class ServerRequestSender:
     def __init__(self):
         def send_server_request():
+            global ping_ans
+            global logn
+            global name_text_dict
             host="127.0.0.1"
             port=6575
-            message = '~ping~'
             while True:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    try:
-                        s.connect((host, port))
-                        print("Connection done!")
-                        s.sendall(message.encode())
-                        #print(f"Message '{self.message}' sent successfully to {self.host}:{self.port}")
-                        response = s.recv(1024).decode()
-                        #print(f"Response from server: {response}")
-                    except Exception as e:
-                        print(f"Error occurred: {e}")
+                if logn != "" and lets_ping != "":
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        try:
+                            message = '~ping~ + ' + logn
+                            s.connect((host, port))
+                            print("Connection done!")
+                            s.sendall(message.encode())
+                            resp = s.recv(1024).decode()
+                            ans = resp.split('+')
+                            if ans[0] != "":
+                                #name_text_dict[ans[0]] = (ans[0] + '---' + ans[1])
+                                pass
+                        except Exception as e:
+                            print(f"Error occurred: {e}")
 
-                time.sleep(5)
+                    time.sleep(100)
 
         request_thread = threading.Thread(target=send_server_request)
         request_thread.daemon = True
@@ -45,21 +63,20 @@ class App(CTk.CTk):
         global realtime_user
         realtime_user = ""
 
-        global name_text_dict
-        name_text_dict = {}
-
-        global logn
-        logn = ""
-
         global password
         password = ""
 
+        global userto
+        userto = ""
+
         self.server_request_sender = ServerRequestSender()
+
 
         def sha256(input_string):
             sha256_hash = hashlib.sha256()
             sha256_hash.update(input_string.encode('utf-8'))
             return sha256_hash.hexdigest()
+
 
         def send_tcp_message(message, host="127.0.0.1", port=6575):
             # Создаем сокет
@@ -76,6 +93,7 @@ class App(CTk.CTk):
                 
                 return response
             
+
         def key_gen(parameter):
             if parameter == 0:
                 pass
@@ -93,6 +111,7 @@ class App(CTk.CTk):
                     json.dump(((e, n), (d, n)), file, ensure_ascii=False, indent=4)
                 return (e, n), (d, n)
 
+
         def ToplevelWindow():
             new_window = CTk.CTkToplevel(self)
             new_window.geometry("400x300")
@@ -104,11 +123,13 @@ class App(CTk.CTk):
             new_window.label = CTk.CTkLabel(new_window, image=my_image, text="", )
             new_window.label.pack(padx=20, pady=20)
 
+
             def login():
                 global login_check
                 global realtime_user
                 global logn
                 global password
+                global lets_ping
                 logn = new_window.user.get()
                 logn = logn.lower()
                 password = new_window.password.get()
@@ -124,6 +145,7 @@ class App(CTk.CTk):
 
                 if resp == "User created successfully" or resp == "Login successful":
                     new_window.destroy()
+                    lets_ping = "1"
                     load_data(logn)
                     return
                 elif resp == "Bad password":
@@ -139,27 +161,49 @@ class App(CTk.CTk):
             new_window.login = CTk.CTkButton(master=new_window, width=50, height=30, fg_color="#5e00ff", text_color="white", text="register/login", command=login)
             new_window.login.place(x=150, y=250)
 
-        def send_To_Server():
-            pass
+
+        def send_To_Server(message):
+            global userto
+            global logn
+            openkey = send_tcp_message(logn + '`' + ' ')
+            keys = openkey.split(':')
+            message = rsa.decryption((int(keys[0]), int(keys[1])), message)
+            mes = ""
+            for i in message:
+                mes += str(i) + ','
+            ifls = send_tcp_message(userto + '+' + logn + '+' + mes)
+            if ifls:
+                pass
+
 
         def sendtext():
+            global userto
             global name_text_dict
+            global password 
             message = self.textbox.get()
             current_time = datetime.datetime.now()
             message_text = f"{current_time} - {message}\n"
 
-            send_To_Server()
+            send_To_Server(message_text)
 
             text_label = CTk.CTkLabel(master=self.chat_frame, text=message_text, justify=CTk.LEFT)
             text_label.pack(anchor=CTk.W)
             message = self.textbox.delete(first_index=0, last_index=10000)
+
+            if userto.lower() in name_text_dict.keys():
+                st = name_text_dict.get(userto)
+                st += message_text
+                name_text_dict[userto.lower()] = st
+            else:
+                name_text_dict[userto.lower()] = message_text
+
             save_data()
 
         def text_add(message):
-            global name_text_dict
             text_label = CTk.CTkLabel(master=self.chat_frame, text=message, justify=CTk.LEFT)
             text_label.pack(anchor=CTk.W)
             message = self.textbox.delete(first_index=0, last_index=10000)
+
 
         def new_user_add():
             global name_text_dict
@@ -167,10 +211,10 @@ class App(CTk.CTk):
             new_usr_window = CTk.CTkInputDialog(text="Type a usename", title="Test")
             username = new_usr_window.get_input()
             if username not in name_text_dict.keys():
-                ifls = send_tcp_message(username + "`" + " ")
+                ifls = send_tcp_message(username.lower() + "`" + " ")
                 if ifls != "bad_user":
-                    name_text_dict[username] = None
-                    button = CTk.CTkButton(master=self.chater_frame, width=190, height=30, text=username, fg_color="#5e00ff", text_color="white", command=lambda: switch_dialog(username))
+                    name_text_dict[username] = ""
+                    button = CTk.CTkButton(master=self.chater_frame, width=190, height=30, text=username.lower(), fg_color="#5e00ff", text_color="white", command=lambda: switch_dialog(username))
                     button.pack()
                     switch_dialog(username)
                 else:
@@ -181,27 +225,36 @@ class App(CTk.CTk):
         def old_user_add(username):
             global name_text_dict
             global realtime_user
-            name_text_dict[username] = None
+            name_text_dict[username] = ""
             button = CTk.CTkButton(master=self.chater_frame, width=190, height=30, text=username, fg_color="#5e00ff", text_color="white", command=lambda: switch_dialog(username))
             button.pack()
             switch_dialog(username)
 
+
         def switch_dialog(username):
             global name_text_dict
             global realtime_user
-            print(username, realtime_user)
-            name_text_dict[realtime_user] = self.chat_frame
+            global userto
+            userto = username
             self.chat_frame.place_forget()
 
             print(f"{username} in {name_text_dict.keys()} == {username in name_text_dict.keys()}")
-            if username in name_text_dict.keys() and name_text_dict.get(username) != None:
+            if username in name_text_dict.keys() and name_text_dict.get(username) != "":
                 print("Trying to replace")
                 self.chat_frame.place_forget()
-                new_dialog_frame = name_text_dict.get(username)
+
+                new_dialog_frame = CTk.CTkScrollableFrame(master=self, width=630, height=490, fg_color="white")
                 new_dialog_frame.place(x=350, y=10)
+
                 self.chat_frame = new_dialog_frame
                 self.chat_frame.tkraise()
                 self.chat_frame.place()
+                st = name_text_dict.get(username)
+                st_arr = st.split("\n")
+                for message in st_arr:
+                    text_label = CTk.CTkLabel(master=self.chat_frame, text=message, justify=CTk.LEFT)
+                    text_label.pack(anchor=CTk.W)
+                    message = self.textbox.delete(first_index=0, last_index=10000)
                 print("DONE :)")
             else:
                 new_dialog_frame = CTk.CTkScrollableFrame(master=self, width=630, height=490, fg_color="white")
@@ -210,12 +263,12 @@ class App(CTk.CTk):
                 self.chat_frame = new_dialog_frame
                 self.chat_frame.tkraise()
                 self.chat_frame.place()
-                name_text_dict[username] = new_dialog_frame
 
             realtime_user = username
 
             print(f"user switched to: {username}")
             
+
         def save_data():
             global logn
             global name_text_dict
@@ -223,26 +276,23 @@ class App(CTk.CTk):
             global password
             for_save_dict = {}
             for i in name_text_dict.keys():
-                for child in name_text_dict[i].winfo_children():
-                    if i in for_save_dict:
-                        st = for_save_dict.get(i)
-                        if "\n" in child.cget("text"):
-                            a = child.cget("text")[:-1].split('-')
-                            a_enc = viginere.vig_encrypt(a[3], password)
-                            st += a[0] + '-' + a[1] + '-' + a[2] + '-' + a_enc + "\n"
-                        else:
-                            a = child.cget("text").split('-')
-                            a_enc = viginere.vig_encrypt(a[3], password)
-                            st += a[0] + '-' + a[1] + '-' + a[2] + '-' + a_enc + "\n"
-                        for_save_dict[i] = st
-                    else:
-                        for_save_dict[i] = child.cget("text")
-            with open(str(logn)+'.json', 'w', encoding='utf-8') as file:
+                x = name_text_dict.get(i)
+                x = x.split('\n')
+                st = ""
+                for j in x:
+                    if j != '':
+                        a = j.split('-')
+                        a_enc = viginere.vig_encrypt(a[3], password)
+                        st += a[0] + '-' + a[1] + '-' + a[2] + '-' + a_enc + "\n"
+                for_save_dict[i] = st
+
+            with open(str(logn)+'.json', 'w') as file:
                 json.dump(for_save_dict, file, ensure_ascii=False, indent=4)
 
 
         def load_data(usr):
             global password
+            global name_text_dict
             with open(str(usr)+'.json', 'r') as file:
                 loaded_dict = json.load(file)
             for i in loaded_dict.keys():
@@ -253,7 +303,10 @@ class App(CTk.CTk):
                     a = j.split('-')
                     if len(a) >= 2:
                         a_dec = viginere.vig_decrypt(a[3], password)
-                        text_add(a[0] + '-' + a[1] + '-' + a[2] + '-' + a_dec)
+                        mes = a[0] + '-' + a[1] + '-' + a[2] + '-' + a_dec
+                        name_text_dict[i] = mes
+                        text_add(mes)
+
 
         self.geometry("1000x600")
         self.title("messenger")
