@@ -95,18 +95,22 @@ class App(CTk.CTk):
             
 
         def key_gen(parameter):
-            if parameter == 0:
-                pass
-            elif parameter == 1:
-                pass
-            print("RSA process!")
-            (e, n), (d, n) = rsa.generate_keypair()
-            print("RSA done!")
             if os.path.exists('keys.json'):
-                with open('keys.json', 'r') as file:
-                    (e, n), (d, n) = json.load(file)
-                return (e, n), (d, n)
+                if parameter == 0:
+                    with open('keys.json', 'r') as file:
+                        (e, n), (d, n) = json.load(file)
+                    return (e, n), (d, n)
+                elif parameter == 1:
+                    print("RSA process!")
+                    (e, n), (d, n) = rsa.generate_keypair()
+                    print("RSA done!")
+                    with open('keys.json', 'w', encoding='utf-8') as file:
+                        json.dump(((e, n), (d, n)), file, ensure_ascii=False, indent=4)
+                    return (e, n), (d, n)
             else:
+                print("RSA process!")
+                (e, n), (d, n) = rsa.generate_keypair()
+                print("RSA done!")
                 with open('keys.json', 'w', encoding='utf-8') as file:
                     json.dump(((e, n), (d, n)), file, ensure_ascii=False, indent=4)
                 return (e, n), (d, n)
@@ -272,7 +276,6 @@ class App(CTk.CTk):
         def save_data():
             global logn
             global name_text_dict
-            global realtime_user
             global password
             for_save_dict = {}
             for i in name_text_dict.keys():
