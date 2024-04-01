@@ -10,7 +10,65 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func handleRequest(conn net.Conn, db *sql.DB, addr net.Addr) {
+func registration_login(request string, db *sql.DB) string {
+	parts := strings.Split(request, "~")
+	login := parts[0]
+	password := parts[1]
+	openkey := parts[2]
+
+	fmt.Println("Тип запроса - логин/регистрация")
+	fmt.Println("login - ", login)
+	fmt.Println("password - ", password)
+	fmt.Println("")
+
+	// Запрос 1
+	var storedPassword string
+	err := db.QueryRow("SELECT paswd FROM autor WHERE usr = '" + login + "'").Scan(&storedPassword)
+	fmt.Println("storedPassword - ", storedPassword, " - ", len(storedPassword))
+	if err == sql.ErrNoRows || storedPassword == "" {
+		_, err = db.Exec("INSERT INTO autor (usr, paswd) VALUES ($1, $2)", login, password)
+		if err != nil {
+			log.Println(err)
+		}
+		_, err1 := db.Exec("INSERT INTO usr_info (usr, openkey) VALUES ($1, $2)", login, openkey)
+		if err1 != nil {
+			log.Println(err)
+		}
+		return "User created successfully"
+	} else if storedPassword == password {
+		_, err1 := db.Exec("UPDATE your_table SET column2 = $2, WHERE condition_column = $1", login, openkey)
+		if err1 != nil {
+			log.Println(err)
+		}
+		return "Login successful"
+	} else {
+		return "Bad password"
+	}
+}
+
+func to_chat(request string, db *sql.DB) string {
+	fmt.Println("Тип запроса - пересылка сообщения")
+	parts := strings.Split(request, "+")
+	login := parts[0]
+	from := parts[1]
+	message := parts[2]
+
+	var count int
+	err := db.QueryRow("SELECT count(*) FROM chat").Scan(&count)
+	if err != nil {
+		log.Fatal(err)
+	}
+	id := count + 1
+
+	_, err1 := db.Exec("INSERT INTO chat (logn, frm, mess, idd) VALUES ($1, $2, $3, $4)", login, from, message, id)
+	if err1 != nil {
+		log.Println(err)
+		return "fail sending message"
+	}
+	return "message send"
+}
+
+func handleRequest(conn net.Conn, db *sql.DB) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
@@ -20,13 +78,34 @@ func handleRequest(conn net.Conn, db *sql.DB, addr net.Addr) {
 	}
 
 	request := strings.TrimSpace(string(buffer[:n]))
-	usrip := conn.RemoteAddr().String()
+	if strings.Contains(request, "~ping~") {
+		parts := strings.Split(request, " + ")
+		fmt.Println(request, "------------")
+		login := parts[1]
 
-	if strings.Contains(request, "`") {
+		fmt.Println(login, "------------")
+
+		var frm string
+		var mess string
+		var id int
+
+		err := db.QueryRow("SELECT logn, mess, idd FROM chat WHERE frm = $1 LIMIT 1", login).Scan(&frm, &mess, &id)
+		if err != nil {
+			log.Println(err)
+		}
+		_, err = db.Exec("DELETE FROM chat WHERE idd = $1", id)
+		if err != nil {
+			log.Println(err)
+		}
+
+		resp := frm + "+" + mess
+		conn.Write([]byte(resp))
+	} else if strings.Contains(request, "`") {
 		// Запрос 2
 		parts := strings.Split(request, "`")
 		login := parts[0]
 		var openkey string
+		fmt.Println(login)
 		err := db.QueryRow("SELECT openkey FROM usr_info WHERE usr = $1", login).Scan(&openkey)
 		if err == sql.ErrNoRows {
 			conn.Write([]byte("bad_user"))
@@ -35,64 +114,13 @@ func handleRequest(conn net.Conn, db *sql.DB, addr net.Addr) {
 		conn.Write([]byte(openkey))
 
 	} else if strings.Contains(request, "+") {
-		fmt.Println("Тип запроса - пересылка сообщения")
-		parts := strings.Split(request, "+")
-		login := parts[0]
-		message := parts[1]
-
-		// Запрос 3
-		var recipient string
-		err := db.QueryRow("SELECT usr FROM usr_info WHERE usr = $1", login).Scan(&recipient)
-		if err != nil {
-			conn.Write([]byte("Recipient does not exist"))
-			return
-		}
-		conn.Write([]byte(fmt.Sprintf("Sending message '%s' to %s", message, recipient)))
-
+		resp := to_chat(request, db)
+		conn.Write([]byte(resp))
 	} else if strings.Contains(request, "~") {
-		parts := strings.Split(request, "~")
-		login := parts[0]
-		password := parts[1]
-		openkey := parts[2]
-		fmt.Println(openkey)
-
-		fmt.Println("Тип запроса - логин/регистрация")
-		fmt.Println("login - ", login)
-		fmt.Println("password - ", password)
-		fmt.Println("")
-
-		// Запрос 1
-		var storedPassword string
-		fmt.Println("SELECT paswd FROM autor WHERE usr = '" + login + "'")
-		err := db.QueryRow("SELECT paswd FROM autor WHERE usr = '" + login + "'").Scan(&storedPassword)
-		fmt.Println("storedPassword - ", storedPassword, " - ", len(storedPassword))
-		if err == sql.ErrNoRows || storedPassword == "" {
-			_, err = db.Exec("INSERT INTO autor (usr, paswd) VALUES ($1, $2)", login, password)
-			if err != nil {
-				log.Println(err)
-				conn.Write([]byte("Error creating user"))
-				return
-			}
-			_, err1 := db.Exec("INSERT INTO usr_info (usr, openkey, ip) VALUES ($1, $2, $3)", login, openkey, usrip)
-			if err1 != nil {
-				log.Println(err)
-				conn.Write([]byte("Error append user data to db"))
-				return
-			}
-			conn.Write([]byte("User created successfully"))
-			return
-		} else if storedPassword == password {
-			conn.Write([]byte("Login successful"))
-			_, err1 := db.Exec("UPDATE your_table SET column2 = $2, column3 = $3 WHERE condition_column = $1", login, openkey, usrip)
-			if err1 != nil {
-				log.Println(err)
-				conn.Write([]byte("Error append user data to db"))
-				return
-			}
-		} else {
-			conn.Write([]byte("Bad password"))
-		}
+		resp := registration_login(request, db)
+		conn.Write([]byte(resp))
 	}
+
 }
 
 func main() {
@@ -118,7 +146,6 @@ func main() {
 		}
 		fmt.Println("Сервер запущен...")
 		fmt.Println("______________________")
-		addr := conn.RemoteAddr()
-		go handleRequest(conn, db, addr)
+		go handleRequest(conn, db)
 	}
 }
