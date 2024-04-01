@@ -1,4 +1,4 @@
-<h2 alighn="center"> **Hidy** </h2>
+<h2 alighn="center"> Hidy </h2>
 <h3 alighn="center"> secure messenger </h3>
 
 
