@@ -37,19 +37,31 @@ class ServerRequestSender:
                 if logn != "" and lets_ping != "":
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         try:
+                            print('~ping~ totototo')
                             message = '~ping~ + ' + logn
                             s.connect((host, port))
                             print("Connection done!")
                             s.sendall(message.encode())
                             resp = s.recv(1024).decode()
                             ans = resp.split('+')
+                            userto = ans[0]
+                            message_text = ans[1]
+
+                            print(f'UUUUUAAAA: {resp} :)')
+
                             if ans[0] != "":
-                                #name_text_dict[ans[0]] = (ans[0] + '---' + ans[1])
+                                if userto.lower() in name_text_dict.keys():
+                                    st = name_text_dict.get(userto)
+                                    st += message_text
+                                    name_text_dict[userto.lower()] = st
+                                else:
+                                    name_text_dict[userto.lower()] = message_text
                                 pass
+
                         except Exception as e:
                             print(f"Error occurred: {e}")
 
-                    time.sleep(100)
+                    time.sleep(10)
 
         request_thread = threading.Thread(target=send_server_request)
         request_thread.daemon = True
@@ -171,6 +183,10 @@ class App(CTk.CTk):
             global logn
             openkey = send_tcp_message(logn + '`' + ' ')
             keys = openkey.split(':')
+
+            if keys[0] == 'bad_user':
+                return
+            
             message = rsa.decryption((int(keys[0]), int(keys[1])), message)
             mes = ""
             for i in message:
