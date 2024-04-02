@@ -254,6 +254,7 @@ class App(CTk.CTk):
                 self.chat_frame.tkraise()
                 self.chat_frame.place()
                 st = name_text_dict.get(username)
+                print(st, '-=-=-=-=-=-=-=-=-=-=-=')
                 st_arr = st.split("\n")
                 for message in st_arr:
                     text_label = CTk.CTkLabel(master=self.chat_frame, text=message, justify=CTk.LEFT)
@@ -263,7 +264,6 @@ class App(CTk.CTk):
             else:
                 new_dialog_frame = CTk.CTkScrollableFrame(master=self, width=630, height=490, fg_color="white")
                 new_dialog_frame.place(x=350, y=10)
-                #debug_output()
                 self.chat_frame = new_dialog_frame
                 self.chat_frame.tkraise()
                 self.chat_frame.place()
@@ -301,15 +301,21 @@ class App(CTk.CTk):
             for i in loaded_dict.keys():
                 old_user_add(i)
                 st = loaded_dict.get(i)
-                st_arr = st.split("\n")
-                for j in st_arr:
+                st_old = st.split("\n")
+                for j in st_old:
                     a = j.split('-')
                     if len(a) >= 2:
                         a_dec = viginere.vig_decrypt(a[3], password)
                         mes = a[0] + '-' + a[1] + '-' + a[2] + '-' + a_dec
-                        name_text_dict[i] = mes
+                        print(i, mes, '-1-1-1-1-1-1-1-1-1--1-1-1-1-1-1-')
+                        if i.lower() in name_text_dict.keys():
+                            st_new = name_text_dict.get(i)
+                            st_new += mes + '\n'
+                            name_text_dict[i.lower()] = st_new
+                        else:
+                            name_text_dict[i.lower()] = mes
                         text_add(mes)
-
+            print(name_text_dict, '-0-0-0-0-0-0-0-0-0-0-0')
 
         self.geometry("1000x600")
         self.title("messenger")
