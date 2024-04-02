@@ -45,7 +45,20 @@ class ServerRequestSender:
                             resp = s.recv(1024).decode()
                             ans = resp.split('+')
                             userto = ans[0]
-                            message_text = ans[1]
+                            message_text = ans[1].split(',')
+                            mssage_convert = []
+                            for i in message_text:
+                                mssage_convert.append(int(i))
+
+
+                            with open('keys.json', 'r') as file:
+                                loaded_dict = json.load(file)
+                                print(loaded_dict)
+
+                                d, n = int(loaded_dict[1][0]), int(loaded_dict[1][1])
+
+                            message_text = rsa.encryption((d, n), mssage_convert)
+
 
                             print(f'UUUUUAAAA: {resp} :)')
 
@@ -66,6 +79,7 @@ class ServerRequestSender:
         request_thread = threading.Thread(target=send_server_request)
         request_thread.daemon = True
         request_thread.start()
+
 
 
 class App(CTk.CTk):
