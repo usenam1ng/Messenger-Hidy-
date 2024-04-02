@@ -136,6 +136,9 @@ class App(CTk.CTk):
                 password = new_window.password.get()
                 password = password.lower()
                 password = sha256(password)
+                if login == "" or password == "":
+                    new_window.destroy()
+                    ToplevelWindow()
 
                 (e, n), (d, n) = key_gen(0)
                 openkey = str(e) + ":" + str(n)
@@ -210,7 +213,7 @@ class App(CTk.CTk):
             global name_text_dict
             new_usr_window = CTk.CTkInputDialog(text="Type a usename", title="Test")
             username = new_usr_window.get_input()
-            if username not in name_text_dict.keys():
+            if username not in name_text_dict.keys() and username != "":
                 ifls = send_tcp_message(username.lower() + "`" + " ")
                 if ifls != "bad_user":
                     name_text_dict[username] = ""
