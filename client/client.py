@@ -60,8 +60,6 @@ class App(CTk.CTk):
     def __init__(self):
         print("Interface loaded!")
         super().__init__()
-        global realtime_user
-        realtime_user = ""
 
         global password
         password = ""
@@ -130,7 +128,6 @@ class App(CTk.CTk):
 
             def login():
                 global login_check
-                global realtime_user
                 global logn
                 global password
                 global lets_ping
@@ -211,7 +208,6 @@ class App(CTk.CTk):
 
         def new_user_add():
             global name_text_dict
-            global realtime_user
             new_usr_window = CTk.CTkInputDialog(text="Type a usename", title="Test")
             username = new_usr_window.get_input()
             if username not in name_text_dict.keys():
@@ -228,7 +224,6 @@ class App(CTk.CTk):
 
         def old_user_add(username):
             global name_text_dict
-            global realtime_user
             name_text_dict[username] = ""
             button = CTk.CTkButton(master=self.chater_frame, width=190, height=30, text=username, fg_color="#5e00ff", text_color="white", command=lambda: switch_dialog(username))
             button.pack()
@@ -237,7 +232,6 @@ class App(CTk.CTk):
 
         def switch_dialog(username):
             global name_text_dict
-            global realtime_user
             global userto
             userto = username
             self.chat_frame.place_forget()
@@ -254,7 +248,6 @@ class App(CTk.CTk):
                 self.chat_frame.tkraise()
                 self.chat_frame.place()
                 st = name_text_dict.get(username)
-                print(st, '-=-=-=-=-=-=-=-=-=-=-=')
                 st_arr = st.split("\n")
                 for message in st_arr:
                     text_label = CTk.CTkLabel(master=self.chat_frame, text=message, justify=CTk.LEFT)
@@ -267,8 +260,6 @@ class App(CTk.CTk):
                 self.chat_frame = new_dialog_frame
                 self.chat_frame.tkraise()
                 self.chat_frame.place()
-
-            realtime_user = username
 
             print(f"user switched to: {username}")
             
@@ -307,7 +298,6 @@ class App(CTk.CTk):
                     if len(a) >= 2:
                         a_dec = viginere.vig_decrypt(a[3], password)
                         mes = a[0] + '-' + a[1] + '-' + a[2] + '-' + a_dec
-                        print(i, mes, '-1-1-1-1-1-1-1-1-1--1-1-1-1-1-1-')
                         if i.lower() in name_text_dict.keys():
                             st_new = name_text_dict.get(i)
                             st_new += mes + '\n'
@@ -315,7 +305,6 @@ class App(CTk.CTk):
                         else:
                             name_text_dict[i.lower()] = mes
                         text_add(mes)
-            print(name_text_dict, '-0-0-0-0-0-0-0-0-0-0-0')
 
         self.geometry("1000x600")
         self.title("messenger")
