@@ -1,72 +1,47 @@
 import random
 
-
-def encryption(private_key, cipher):
-    d, n = private_key
-    plain = [chr(pow(char, d, n)) for char in cipher]
-    return ''.join(plain)
-    
-
-def decryption(public_key, plaintext):
-    e, n = public_key
-    cipher = [pow(ord(char), e, n) for char in plaintext]
-    return cipher
-
 def is_prime(num):
-    print("Ispiiming...")
-    test_count = 3
-    if num == 2 or num == 3:
-        return True
-    if num < 2 or num % 2 == 0:
+    if num < 2:
         return False
-
-    def check(a, s, d, n):
-        x = pow(a, d, n)
-        if x == 1:
-            return True
-        for _ in range(s - 1):
-            if x == n - 1:
-                return True
-            x = pow(x, 2, n)
-        return x == n - 1
-
-    s = 0
-    d = num - 1
-    while d % 2 == 0:
-        d >>= 1
-        s += 1
-
-    for _ in range(test_count):
-        a = random.randrange(2, num - 1)
-        if not check(a, s, d, num):
+    for i in range(2, int(num ** 0.5) + 1):
+        if num % i == 0:
             return False
     return True
 
-def egcd(a, b):
-    if a == 0:
-        return (b, 0, 1)
-    else:
-        g, y, x = egcd(b % a, a)
-        return (g, x - (b // a) * y, y)
-
 def generate_keypair():
-    print("RSA loaded!")
-    p = 0
-    q = 0
-    while True:
-        p = random.getrandbits(128)
-        q = random.getrandbits(128)
-        if is_prime(p) and is_prime(q):
-            break
-
+    p = random.choice([i for i in range(20, 50) if is_prime(i)])
+    q = random.choice([i for i in range(50, 100) if is_prime(i)])
     n = p * q
     phi = (p - 1) * (q - 1)
 
     e = random.randrange(1, phi)
-    g = egcd(e, phi)
+    g = gcd(e, phi)
     while g != 1:
         e = random.randrange(1, phi)
-        g, x, y = egcd(e, phi)
+        g = gcd(e, phi)
 
-    d = x % phi
-    return (e, n), (d, n)
+    d = mod_inverse(e, phi)
+    return ((e, n), (d, n))
+
+def encrypt(public_key, plaintext):
+    e, n = public_key
+    cipher = [pow(ord(char), e, n) for char in plaintext]
+    return cipher
+
+def decrypt(private_key, ciphertext):
+    d, n = private_key
+    plain = [chr(pow(char, d, n)) for char in ciphertext]
+    return ''.join(plain)
+
+def gcd(a, b):
+    while b != 0:
+        a, b = b, a % b
+    return a
+
+def mod_inverse(a, m):
+    m0, x0, x1 = m, 0, 1
+    while a > 1:
+        q = a // m
+        m, a = a % m, m
+        x0, x1 = x1 - q * x0, x0
+    return x1 % m0
