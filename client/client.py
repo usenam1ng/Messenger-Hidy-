@@ -37,27 +37,27 @@ class ServerRequestSender:
                 if logn != "" and lets_ping != "":
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         try:
-                            print('~ping~ totototo')
                             message = '~ping~ + ' + logn
                             s.connect((host, port))
                             print("Connection done!")
                             s.sendall(message.encode())
                             resp = s.recv(1024).decode()
+                            print(resp)
                             ans = resp.split('+')
                             userto = ans[0]
                             message_text = ans[1].split(',')
                             mssage_convert = []
                             for i in message_text:
-                                mssage_convert.append(int(i))
+                                if i != "":
+                                    mssage_convert.append(int(i))
 
-
-                            with open('keys.json', 'r') as file:
+                            with open(logn + '-keys' + '.json', 'r') as file:
                                 loaded_dict = json.load(file)
                                 print(loaded_dict)
 
                                 d, n = int(loaded_dict[1][0]), int(loaded_dict[1][1])
 
-                            message_text = rsa.encryption((d, n), mssage_convert)
+                            message_text = rsa.decrypt((d, n), mssage_convert)
 
 
                             print(f'UUUUUAAAA: {resp} :)')
@@ -65,10 +65,10 @@ class ServerRequestSender:
                             if ans[0] != "":
                                 if userto.lower() in name_text_dict.keys():
                                     st = name_text_dict.get(userto)
-                                    st += message_text
+                                    st += userto + '|' + message_text
                                     name_text_dict[userto.lower()] = st
                                 else:
-                                    name_text_dict[userto.lower()] = message_text
+                                    name_text_dict[userto.lower()] = userto + '|' + message_text
                                 pass
 
                         except Exception as e:
@@ -119,23 +119,24 @@ class App(CTk.CTk):
             
 
         def key_gen(parameter):
-            if os.path.exists('keys.json'):
+            global logn
+            if os.path.exists(logn + '-keys' + '.json'):
                 if parameter == 0:
-                    with open('keys.json', 'r') as file:
+                    with open(logn + '-keys' + '.json', 'r') as file:
                         (e, n), (d, n) = json.load(file)
                     return (e, n), (d, n)
                 elif parameter == 1:
                     print("RSA process!")
                     (e, n), (d, n) = rsa.generate_keypair()
                     print("RSA done!")
-                    with open('keys.json', 'w', encoding='utf-8') as file:
+                    with open(logn + '-keys' + '.json', 'w', encoding='utf-8') as file:
                         json.dump(((e, n), (d, n)), file, ensure_ascii=False, indent=4)
                     return (e, n), (d, n)
             else:
                 print("RSA process!")
                 (e, n), (d, n) = rsa.generate_keypair()
                 print("RSA done!")
-                with open('keys.json', 'w', encoding='utf-8') as file:
+                with open(logn + '-keys' + '.json', 'w', encoding='utf-8') as file:
                     json.dump(((e, n), (d, n)), file, ensure_ascii=False, indent=4)
                 return (e, n), (d, n)
 
@@ -195,16 +196,16 @@ class App(CTk.CTk):
         def send_To_Server(message):
             global userto
             global logn
-            openkey = send_tcp_message(logn + '`' + ' ')
+            openkey = send_tcp_message(userto + '`' + ' ')
             keys = openkey.split(':')
 
             if keys[0] == 'bad_user':
                 return
             
-            message = rsa.decryption((int(keys[0]), int(keys[1])), message)
+            message = rsa.encrypt((int(keys[0]), int(keys[1])), message)
+            print(message)
             mes = ""
-            for i in message:
-                mes += str(i) + ','
+            mes = ','.join(map(str, message))
             ifls = send_tcp_message(userto + '+' + logn + '+' + mes)
             if ifls:
                 pass
