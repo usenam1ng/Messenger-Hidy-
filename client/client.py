@@ -31,8 +31,8 @@ class ServerRequestSender:
             global ping_ans
             global logn
             global name_text_dict
-            host="127.0.0.1"
-            port=6575
+            host="217.71.129.139"
+            port=4258
             while True:
                 if logn != "" and lets_ping != "":
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -65,7 +65,7 @@ class ServerRequestSender:
                             if ans[0] != "":
                                 if userto.lower() in name_text_dict.keys():
                                     st = name_text_dict.get(userto)
-                                    st += userto + '|' + message_text
+                                    st += userto.upper() + ' | ' + message_text
                                     name_text_dict[userto.lower()] = st
                                 else:
                                     name_text_dict[userto.lower()] = userto + '|' + message_text
@@ -102,7 +102,7 @@ class App(CTk.CTk):
             return sha256_hash.hexdigest()
 
 
-        def send_tcp_message(message, host="127.0.0.1", port=6575):
+        def send_tcp_message(message, host="217.71.129.139", port=4258):
             # Создаем сокет
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 # Устанавливаем соединение с сервером
