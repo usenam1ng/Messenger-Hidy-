@@ -25,14 +25,23 @@ logn = ""
 global lets_ping
 lets_ping = ""
 
+global host
+host="217.71.129.139"
+global port
+port=4258
+
+global oldlen
+oldlen = 0
+
 class ServerRequestSender:
     def __init__(self):
         def send_server_request():
+            CTk.set_appearance_mode("light")
             global ping_ans
             global logn
             global name_text_dict
-            host="217.71.129.139"
-            port=4258
+            global host
+            global port
             while True:
                 if logn != "" and lets_ping != "":
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -42,39 +51,44 @@ class ServerRequestSender:
                             print("Connection done!")
                             s.sendall(message.encode())
                             resp = s.recv(1024).decode()
-                            print(resp)
-                            ans = resp.split('+')
-                            userto = ans[0]
-                            message_text = ans[1].split(',')
-                            mssage_convert = []
-                            for i in message_text:
-                                if i != "":
-                                    mssage_convert.append(int(i))
+                            if resp != "":
+                                print(resp)
+                                ans = resp.split('+')
+                                userto = ans[0]
+                                message_text = ans[1].split(',')
+                                mssage_convert = []
+                                for i in message_text:
+                                    if i != "":
+                                        mssage_convert.append(int(i))
 
-                            with open(logn + '-keys' + '.json', 'r') as file:
-                                loaded_dict = json.load(file)
-                                print(loaded_dict)
+                                with open(logn + '-keys' + '.json', 'r') as file:
+                                    loaded_dict = json.load(file)
+                                    d, n = int(loaded_dict[1][0]), int(loaded_dict[1][1])
 
-                                d, n = int(loaded_dict[1][0]), int(loaded_dict[1][1])
+                                message_text = rsa.decrypt((d, n), mssage_convert)
 
-                            message_text = rsa.decrypt((d, n), mssage_convert)
+                                if ans[0] != "":
+                                    if userto.lower() in name_text_dict.keys():
+                                        st = name_text_dict.get(userto)
+                                        st += message_text + ' | ' + userto.upper()
+                                        name_text_dict[userto.lower()] = st
+                                    else:
+                                        name_text_dict[userto.lower()] = message_text + ' | ' + userto.upper()
+                                
+                                def sort_messages(messages):
+                                    messages_list = messages.split('\n')
+                                    sorted_messages = sorted(messages_list, key=lambda x: x.split(' - ')[0])
+                                    ans = ""
+                                    for i in sorted_messages:
+                                        ans += i + "\n"
+                                    return ans
 
-
-                            print(f'UUUUUAAAA: {resp} :)')
-
-                            if ans[0] != "":
-                                if userto.lower() in name_text_dict.keys():
-                                    st = name_text_dict.get(userto)
-                                    st += userto.upper() + ' | ' + message_text
-                                    name_text_dict[userto.lower()] = st
-                                else:
-                                    name_text_dict[userto.lower()] = userto + '|' + message_text
-                                pass
+                                name_text_dict = {user: sort_messages(messages) for user, messages in name_text_dict.items()}
 
                         except Exception as e:
                             print(f"Error occurred: {e}")
 
-                    time.sleep(10)
+                    time.sleep(2)
 
         request_thread = threading.Thread(target=send_server_request)
         request_thread.daemon = True
@@ -102,20 +116,27 @@ class App(CTk.CTk):
             return sha256_hash.hexdigest()
 
 
-        def send_tcp_message(message, host="217.71.129.139", port=4258):
-            # Создаем сокет
+        def send_tcp_message(message):
+            global host
+            global port
+
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                # Устанавливаем соединение с сервером
                 s.connect((host, port))
                 print("Connection done!")
-                # Отправляем сообщение
                 s.sendall(message.encode())
-                #(f"Сообщение '{message}' отправлено успешно на {host}:{port}")
 
                 response = s.recv(1024).decode()
                 print(f"Получен ответ от сервера: {response}")
                 
                 return response
+        
+        def sort_messages(messages):
+            messages_list = messages.split('\n')
+            sorted_messages = sorted(messages_list, key=lambda x: x.split(' - ')[0])
+            ans = ""
+            for i in sorted_messages:
+                ans += i + "\n"
+            return ans
             
 
         def key_gen(parameter):
@@ -203,7 +224,7 @@ class App(CTk.CTk):
                 return
             
             message = rsa.encrypt((int(keys[0]), int(keys[1])), message)
-            print(message)
+            #print(message)
             mes = ""
             mes = ','.join(map(str, message))
             ifls = send_tcp_message(userto + '+' + logn + '+' + mes)
@@ -216,14 +237,19 @@ class App(CTk.CTk):
             global name_text_dict
             global password 
             message = self.textbox.get()
-            current_time = datetime.datetime.now()
+            current_time = str(datetime.datetime.now())[:-7]
             message_text = f"{current_time} - {message}\n"
 
             send_To_Server(message_text)
 
-            text_label = CTk.CTkLabel(master=self.chat_frame, text=message_text, justify=CTk.LEFT)
-            text_label.pack(anchor=CTk.W)
-            message = self.textbox.delete(first_index=0, last_index=10000)
+            if "|" in message:
+                text_label = CTk.CTkLabel(master=self.chat_frame, text=message_text, justify=CTk.LEFT)
+                text_label.pack(anchor=CTk.W)
+                message = self.textbox.delete(first_index=0, last_index=10000)
+            else:
+                text_label = CTk.CTkLabel(master=self.chat_frame, text=message_text, justify=CTk.LEFT)
+                text_label.pack(anchor=CTk.E)
+                message = self.textbox.delete(first_index=0, last_index=10000)
 
             if userto.lower() in name_text_dict.keys():
                 st = name_text_dict.get(userto)
@@ -232,12 +258,19 @@ class App(CTk.CTk):
             else:
                 name_text_dict[userto.lower()] = message_text
 
+            name_text_dict = {user: sort_messages(messages) for user, messages in name_text_dict.items()}
+
             save_data()
 
         def text_add(message):
-            text_label = CTk.CTkLabel(master=self.chat_frame, text=message, justify=CTk.LEFT)
-            text_label.pack(anchor=CTk.W)
-            message = self.textbox.delete(first_index=0, last_index=10000)
+            if "|" in message:
+                text_label = CTk.CTkLabel(master=self.chat_frame, text=message, justify=CTk.LEFT)
+                text_label.pack(anchor=CTk.W)
+                message = self.textbox.delete(first_index=0, last_index=10000)
+            else:
+                text_label = CTk.CTkLabel(master=self.chat_frame, text=message, justify=CTk.LEFT)
+                text_label.pack(anchor=CTk.E)
+                message = self.textbox.delete(first_index=0, last_index=10000)
 
 
         def new_user_add():
@@ -267,12 +300,14 @@ class App(CTk.CTk):
         def switch_dialog(username):
             global name_text_dict
             global userto
+            global oldlen
             userto = username
+            oldlen = len(name_text_dict.get(userto))
             self.chat_frame.place_forget()
 
             print(f"{username} in {name_text_dict.keys()} == {username in name_text_dict.keys()}")
             if username in name_text_dict.keys() and name_text_dict.get(username) != "":
-                print("Trying to replace")
+                #print("Trying to replace")
                 self.chat_frame.place_forget()
 
                 new_dialog_frame = CTk.CTkScrollableFrame(master=self, width=630, height=490, fg_color="white")
@@ -284,10 +319,8 @@ class App(CTk.CTk):
                 st = name_text_dict.get(username)
                 st_arr = st.split("\n")
                 for message in st_arr:
-                    text_label = CTk.CTkLabel(master=self.chat_frame, text=message, justify=CTk.LEFT)
-                    text_label.pack(anchor=CTk.W)
-                    message = self.textbox.delete(first_index=0, last_index=10000)
-                print("DONE :)")
+                    text_add(message)
+                #rint("DONE :)")
             else:
                 new_dialog_frame = CTk.CTkScrollableFrame(master=self, width=630, height=490, fg_color="white")
                 new_dialog_frame.place(x=350, y=10)
