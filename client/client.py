@@ -70,20 +70,22 @@ class ServerRequestSender:
                                 if ans[0] != "":
                                     if userto.lower() in name_text_dict.keys():
                                         st = name_text_dict.get(userto)
-                                        st += message_text + ' | ' + userto.upper()
+                                        st += userto.upper() + ' | ' + message_text
                                         name_text_dict[userto.lower()] = st
                                     else:
-                                        name_text_dict[userto.lower()] = message_text + ' | ' + userto.upper()
+                                        name_text_dict[userto.lower()] = userto.upper() + ' | ' + message_text
                                 
-                                def sort_messages(messages):
-                                    messages_list = messages.split('\n')
-                                    sorted_messages = sorted(messages_list, key=lambda x: x.split(' - ')[0])
-                                    ans = ""
-                                    for i in sorted_messages:
-                                        ans += i + "\n"
-                                    return ans
+                                def sort_messages():
+                                    global name_text_dict
+                                    for user, messages in name_text_dict.items():
+                                        sorted_messages = sorted(messages.split('\n'), key=lambda x: x.split(' - ', 1)[0][-19:])
+                                        sorted_dialog = ""
+                                        for i in sorted_messages:
+                                            if i != "":
+                                                sorted_dialog += i + '\n'
+                                        name_text_dict[user] = sorted_dialog
 
-                                name_text_dict = {user: sort_messages(messages) for user, messages in name_text_dict.items()}
+                                sort_messages()
 
                         except Exception as e:
                             print(f"Error occurred: {e}")
@@ -130,13 +132,16 @@ class App(CTk.CTk):
                 
                 return response
         
-        def sort_messages(messages):
-            messages_list = messages.split('\n')
-            sorted_messages = sorted(messages_list, key=lambda x: x.split(' - ')[0])
-            ans = ""
-            for i in sorted_messages:
-                ans += i + "\n"
-            return ans
+        def sort_messages():
+            global name_text_dict
+            for user, messages in name_text_dict.items():
+                sorted_messages = sorted(messages.split('\n'), key=lambda x: x.split(' - ', 1)[0][-19:])
+                sorted_dialog = ""
+                for i in sorted_messages:
+                    if i != "":
+                        sorted_dialog += i + '\n'
+                name_text_dict[user] = sorted_dialog
+            #print(name_text_dict)
             
 
         def key_gen(parameter):
@@ -258,9 +263,9 @@ class App(CTk.CTk):
             else:
                 name_text_dict[userto.lower()] = message_text
 
-            name_text_dict = {user: sort_messages(messages) for user, messages in name_text_dict.items()}
-
+            sort_messages()
             save_data()
+
 
         def text_add(message):
             if "|" in message:
