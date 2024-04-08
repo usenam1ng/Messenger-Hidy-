@@ -19,7 +19,6 @@ func registration_login(request string, db *sql.DB) string {
 	fmt.Println("Тип запроса - логин/регистрация")
 	fmt.Println("login - ", login)
 	fmt.Println("password - ", password)
-	fmt.Println("")
 
 	// Запрос 1
 	var storedPassword string
@@ -36,7 +35,7 @@ func registration_login(request string, db *sql.DB) string {
 		}
 		return "User created successfully"
 	} else if storedPassword == password {
-		_, err1 := db.Exec("UPDATE your_table SET column2 = $2, WHERE condition_column = $1", login, openkey)
+		_, err1 := db.Exec("UPDATE usr_info SET openkey = $1 WHERE usr = $2", openkey, login)
 		if err1 != nil {
 			log.Println(err)
 		}
@@ -129,7 +128,7 @@ func main() {
 	}
 	defer db.Close()
 
-	listener, err := net.Listen("tcp", ":6575")
+	listener, err := net.Listen("tcp", ":4265")
 	if err != nil {
 		fmt.Println("Ошибка при запуске сервера:", err.Error())
 		return
