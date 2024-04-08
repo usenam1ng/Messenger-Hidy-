@@ -28,7 +28,7 @@ lets_ping = ""
 global host
 host="217.71.129.139"
 global port
-port=4258
+port=4265
 
 global oldlen
 oldlen = 0
@@ -211,12 +211,16 @@ class App(CTk.CTk):
 
             new_window.user = CTk.CTkEntry(master=new_window, width=200, height=30)
             new_window.user.place(x=100, y=150)
+            new_window.user.bind("<Return>", lambda x: login())
 
             new_window.password = CTk.CTkEntry(master=new_window, width=200, height=30)
             new_window.password.place(x=100, y=200)
+            new_window.password.bind("<Return>", lambda x: login())
             
             new_window.login = CTk.CTkButton(master=new_window, width=50, height=30, fg_color="#5e00ff", text_color="white", text="register/login", command=login)
             new_window.login.place(x=150, y=250)
+
+            new_window.user.focus()
 
 
         def send_To_Server(message):
@@ -263,6 +267,7 @@ class App(CTk.CTk):
             else:
                 name_text_dict[userto.lower()] = message_text
 
+            self.chat_frame.after(100, self.chat_frame._parent_canvas.yview_moveto, 1.0)
             sort_messages()
             save_data()
 
@@ -321,6 +326,9 @@ class App(CTk.CTk):
                 self.chat_frame = new_dialog_frame
                 self.chat_frame.tkraise()
                 self.chat_frame.place()
+
+                self.chat_frame.after(300, self.chat_frame._parent_canvas.yview_moveto, 1.0)
+
                 st = name_text_dict.get(username)
                 st_arr = st.split("\n")
                 for message in st_arr:
@@ -332,6 +340,7 @@ class App(CTk.CTk):
                 self.chat_frame = new_dialog_frame
                 self.chat_frame.tkraise()
                 self.chat_frame.place()
+                self.chat_frame.after(300, self.chat_frame._parent_canvas.yview_moveto, 1.0)
 
             print(f"user switched to: {username}")
             
@@ -387,6 +396,8 @@ class App(CTk.CTk):
 
         self.textbox = CTk.CTkEntry(master=self, width=590, height=30)
         self.textbox.place(x=350, y=520)
+        self.textbox.bind("<Return>", lambda x: sendtext())
+
         
         self.sendbutton = CTk.CTkButton(master=self, width=30, height=30, fg_color="#5e00ff", text_color="white", text="send", command=sendtext)
         self.sendbutton.place(x=950, y=520)
