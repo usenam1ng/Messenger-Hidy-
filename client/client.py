@@ -28,7 +28,7 @@ lets_ping = ""
 global host
 host="217.71.129.139"
 global port
-port=4265
+port=4258
 
 global oldlen
 oldlen = 0
