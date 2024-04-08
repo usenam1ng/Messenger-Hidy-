@@ -95,6 +95,7 @@ class ServerRequestSender:
             global name_text_dict
             global host
             global port
+            global userto
             while True:
                 if logn != "" and lets_ping != "":
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -107,7 +108,7 @@ class ServerRequestSender:
                             if resp != "":
                                 print(resp)
                                 ans = resp.split('+')
-                                userto = ans[0]
+                                _userto = ans[0]
                                 message_text = ans[1].split(',')
                                 mssage_convert = []
                                 for i in message_text:
@@ -121,14 +122,19 @@ class ServerRequestSender:
                                 message_text = rsa.decrypt((d, n), mssage_convert)
 
                                 if ans[0] != "":
-                                    if userto.lower() in name_text_dict.keys():
-                                        st = name_text_dict.get(userto)
-                                        st += userto.upper() + ' | ' + message_text
-                                        name_text_dict[userto.lower()] = st
+                                    if _userto.lower() in name_text_dict.keys():
+                                        st = name_text_dict.get(_userto)
+                                        st += _userto.upper() + ' | ' + message_text
+                                        name_text_dict[_userto.lower()] = st
                                     else:
-                                        name_text_dict[userto.lower()] = userto.upper() + ' | ' + message_text
+                                        name_text_dict[_userto.lower()] = _userto.upper() + ' | ' + message_text
+
+                                    if _userto == userto:
+                                        app.addMessageIncome(_userto.upper() + ' | ' + message_text)
+                                        app.chat_frame.after(100, app.chat_frame._parent_canvas.yview_moveto, 1.0)
                                 
                                 sort_messages()
+                                
 
                         except Exception as e:
                             print(f"Error occurred: {e}")
@@ -179,13 +185,6 @@ class App(CTk.CTk):
         self.chater_frame.place(x=10, y=50)
 
         self.ToplevelWindow()
-
-
-
-    def updateChat(self):
-        global userto
-        # switch_dialog(userto)
-        self.after(1000, self.updateChat)
     
     def sort_messages():
         global name_text_dict
@@ -270,8 +269,7 @@ class App(CTk.CTk):
         ifls = send_tcp_message(userto + '+' + logn + '+' + mes)
         if ifls:
             pass
-
-
+    
     def sendtext(self):
         global userto
         global name_text_dict
@@ -299,9 +297,17 @@ class App(CTk.CTk):
             name_text_dict[userto.lower()] = message_text
 
 
-        self.chat_frame.after(100, self.chat_frame._parent_canvas.yview_moveto, 1.0)
         sort_messages()
+        self.chat_frame.after(100, self.chat_frame._parent_canvas.yview_moveto, 1.0)
         self.save_data()
+
+    def addMessageIncome(self, message):
+        if "|" in message:
+            text_label = CTk.CTkLabel(master=self.chat_frame, text=message, justify=CTk.LEFT)
+            text_label.pack(anchor=CTk.W)
+        else:
+            text_label = CTk.CTkLabel(master=self.chat_frame, text=message, justify=CTk.LEFT)
+            text_label.pack(anchor=CTk.E)
 
 
     def text_add(self, message):
@@ -319,6 +325,7 @@ class App(CTk.CTk):
         global name_text_dict
         new_usr_window = CTk.CTkInputDialog(text="Type a usename", title="Test")
         username = new_usr_window.get_input()
+        username = username.lower()
         if username not in name_text_dict.keys() and username != "":
             ifls = send_tcp_message(username.lower() + "`" + " ")
             if ifls != "bad_user":
@@ -359,9 +366,7 @@ class App(CTk.CTk):
             self.chat_frame.tkraise()
             self.chat_frame.place()
 
-            some = self.chat_frame.after(300, self.chat_frame._parent_canvas.yview_moveto, 1.0)
-
-            # print(f"SOME = <{some}>")
+            self.chat_frame.after(300, self.chat_frame._parent_canvas.yview_moveto, 1.0)
 
             st = name_text_dict.get(username)
             st_arr = st.split("\n")
@@ -375,11 +380,7 @@ class App(CTk.CTk):
             self.chat_frame.tkraise()
             self.chat_frame.place()
             
-            some = self.chat_frame.after(300, self.chat_frame._parent_canvas.yview_moveto, 1.0)
-            
-            # print(f"SOME = <{some}>")
-
-            # self.after(10, self._parent_canvas.yview_moveto, 1.0)
+            self.chat_frame.after(300, self.chat_frame._parent_canvas.yview_moveto, 1.0)
 
         print(f"user switched to: {username}")
         
@@ -430,5 +431,6 @@ class App(CTk.CTk):
 
 
 if __name__ == "__main__":
+    global app
     app = App()
     app.mainloop()
