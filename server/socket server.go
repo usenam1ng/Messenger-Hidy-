@@ -67,6 +67,41 @@ func to_chat(request string, db *sql.DB) string {
 	return "message send"
 }
 
+func ping(request string, db *sql.DB) string {
+	parts := strings.Split(request, " + ")
+	login := parts[1]
+
+	var frm string
+	var mess string
+	var id int
+
+	err := db.QueryRow("SELECT frm, mess, idd FROM chat WHERE logn = $1 LIMIT 1", login).Scan(&frm, &mess, &id)
+	if err != nil {
+		log.Println(err)
+	}
+
+	fmt.Println(frm, mess, id)
+	_, err = db.Exec("DELETE FROM chat WHERE idd = $1", id)
+	if err != nil {
+		log.Println(err)
+	}
+
+	resp := frm + "+" + mess
+	return resp
+}
+
+func get_openkey(request string, db *sql.DB) string {
+	parts := strings.Split(request, "`")
+	login := parts[0]
+	var openkey string
+	fmt.Println(login)
+	err := db.QueryRow("SELECT openkey FROM usr_info WHERE usr = $1", login).Scan(&openkey)
+	if err == sql.ErrNoRows {
+		return "bad_user"
+	}
+	return openkey
+}
+
 func handleRequest(conn net.Conn, db *sql.DB) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
@@ -78,39 +113,11 @@ func handleRequest(conn net.Conn, db *sql.DB) {
 
 	request := strings.TrimSpace(string(buffer[:n]))
 	if strings.Contains(request, "~ping~") {
-		parts := strings.Split(request, " + ")
-		login := parts[1]
-
-		var frm string
-		var mess string
-		var id int
-
-		err := db.QueryRow("SELECT frm, mess, idd FROM chat WHERE logn = $1 LIMIT 1", login).Scan(&frm, &mess, &id)
-		if err != nil {
-			log.Println(err)
-		}
-
-		fmt.Println(frm, mess, id)
-		_, err = db.Exec("DELETE FROM chat WHERE idd = $1", id)
-		if err != nil {
-			log.Println(err)
-		}
-
-		resp := frm + "+" + mess
+		resp := ping(request, db)
 		conn.Write([]byte(resp))
 	} else if strings.Contains(request, "`") {
-		// Запрос 2
-		parts := strings.Split(request, "`")
-		login := parts[0]
-		var openkey string
-		fmt.Println(login)
-		err := db.QueryRow("SELECT openkey FROM usr_info WHERE usr = $1", login).Scan(&openkey)
-		if err == sql.ErrNoRows {
-			conn.Write([]byte("bad_user"))
-			return
-		}
-		conn.Write([]byte(openkey))
-
+		resp := get_openkey(request, db)
+		conn.Write([]byte(resp))
 	} else if strings.Contains(request, "+") {
 		resp := to_chat(request, db)
 		conn.Write([]byte(resp))
