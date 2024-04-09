@@ -69,6 +69,11 @@ def sort_messages():
             if i != "":
                 sorted_dialog += i + '\n'
         name_text_dict[user] = sorted_dialog
+
+def remove_special_characters(input_string):
+    special_characters = "~|+-`"
+    output_string = ''.join(char for char in input_string if char not in special_characters)
+    return output_string
     
     
 
@@ -269,12 +274,14 @@ class App(CTk.CTk):
         ifls = send_tcp_message(userto + '+' + logn + '+' + mes)
         if ifls:
             pass
+
     
     def sendtext(self):
         global userto
         global name_text_dict
         global password 
         message = self.textbox.get()
+        message = remove_special_characters(message)
         current_time = str(datetime.datetime.now())[:-7]
         message_text = f"{current_time} - {message}\n"
 
